@@ -20,6 +20,96 @@ import Json.Decode.Pipeline exposing (optional, optionalAt, required, requiredAt
 import RemoteData exposing (RemoteData, WebData, succeed)
 import Error exposing (buildErrorMessage)
 
+-- CONFIGURATION
+
+type Config data =
+  Config
+    { toId : data -> Int
+    -- , toMsg : msg
+    , empty : data
+    , columns : List (ColumnData data )
+    }
+
+config
+  : { toId : data -> Int
+    -- , toMsg : msg
+    , empty : data
+    , columns : List (Column data)
+    }
+  -> Config data
+config { toId, empty, columns } =
+  Config
+    { toId = toId
+    -- , toMsg = toMsg
+    , empty = empty
+    , columns = List.map (\(Column cData) -> cData) columns
+    }
+
+type Column data =
+  Column (ColumnData data )
+
+
+type alias ColumnData data  =
+  { name : String
+  , viewData : data -> HtmlDetails (Msg data)
+  , editData : data -> HtmlDetails (Msg data)
+  , storeData : String -> data -> data
+  }
+
+
+{-|-}
+stringColumn : String -> (data -> String) -> (String -> data -> data) -> Column data
+stringColumn name toStr storeData =
+  Column
+    { name = name
+    , viewData = textDetails << toStr
+    , editData = \value -> inputDetails (toStr value) storeData name
+    , storeData = storeData
+    }
+
+
+-- {-|-}
+-- intColumn : String -> (data -> Int) -> Column data msg
+-- intColumn name toInt =
+--   Column
+--     { name = name
+--     , viewData = textDetails << toString << toInt
+--     , storeData = storeData
+--     }
+
+
+
+textDetails : String -> HtmlDetails msg
+textDetails str =
+  HtmlDetails [] [ Html.text str ]
+
+inputDetails : String -> (String -> data -> data) -> String -> HtmlDetails (Msg data)
+inputDetails str store placeholder =
+    HtmlDetails [] [ Input.text [ Input.onInput (Store store), Input.attrs [ Attributes.placeholder placeholder, Attributes.value str] ] ]
+    --   HtmlDetails [] [ Input.text [ Input.onInput store str, Input.attrs [ Attributes.placeholder "name", Attributes.value str] ]  ]
+-- Table.td [] [ Input.text [ Input.onInput StoreName, Input.attrs [ Attributes.placeholder "name", Attributes.value itemSelected1.name] ] ]
+
+type alias HtmlDetails msg =
+  { attributes : List (Table.CellOption msg)
+  , children : List (Html msg)
+  }
+
+-- IMPLEMENT CONFIG
+
+configItem : Config Item
+configItem =
+  config
+    { toId = .id
+    -- , toMsg = Msg
+    , empty = emptyItem
+    , columns =
+        [ stringColumn "Name" .name storeName
+        , stringColumn "Description" .description storeDescription
+        , stringColumn "Unit" .unit storeUnit
+        ]
+    }
+
+-- PROGRAM
 
 type alias Model =
     { items : WebData (List Item)
@@ -29,24 +119,25 @@ type alias Model =
     }
 
 
-type Msg
+type Msg data
     = MsgFetch
-    | MsgReceived (WebData (List Item))
-    | MsgSelect Item
-    | MsgNew Item
-    | MsgEdit Item
-    | MsgDeselect Item
-    | MsgDeleteConfirm Item
-    | MsgDelete Item
-    | MsgUpdate Item
-    | MsgInsert Item
+    | MsgReceived (WebData (List data))
+    | MsgSelect data
+    | MsgNew data
+    | MsgEdit data
+    | MsgDeselect data
+    | MsgDeleteConfirm data
+    | MsgDelete data
+    | MsgUpdate data
+    | MsgInsert data
     | MsgCancel
-    | ItemDeleted (Result Http.Error Item)
-    | ItemInserted (Result Http.Error Item)
-    | ItemUpdated (Result Http.Error Item)
+    | ItemDeleted (Result Http.Error data)
+    | ItemInserted (Result Http.Error data)
+    | ItemUpdated (Result Http.Error data)
     | StoreName String 
     | StoreDescription String 
     | StoreUnit String 
+    | Store (String -> data -> data) String
 
 
 type Mode
@@ -58,7 +149,7 @@ type Mode
     -- | ModeError
 
 
-init : ( Model, Cmd Msg )
+init : ( Model, Cmd (Msg Item))
 init =
     ( { items = RemoteData.Loading
       , itemSelected  = Nothing
@@ -71,7 +162,7 @@ init =
 
 -- VIEWS
 
-view : Model -> Html Msg
+view : Model -> Html (Msg Item)
 view model =
     Grid.container []
         [ CDN.stylesheet
@@ -95,77 +186,77 @@ type Button
     | ButtonOk
 
 
-editorButton : Button -> Item -> Html Msg
-editorButton button itemSelected =
+editorButton : Button -> data -> Html (Msg data)
+editorButton button dataSelected =
     case button of
-        ButtonAdd -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.primary, Button.onClick (MsgNew emptyItem) ] [ text "Insert" ]
+        ButtonAdd -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.primary, Button.onClick (MsgNew dataSelected) ] [ text "Insert" ]
 
-        ButtonEdit -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.primary, Button.onClick (MsgEdit itemSelected) ] [ text "Edit" ]
+        ButtonEdit -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.primary, Button.onClick (MsgEdit dataSelected) ] [ text "Edit" ]
 
-        ButtonDelete -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.danger, Button.onClick (MsgDelete itemSelected) ] [ text "Delete" ]
+        ButtonDelete -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.danger, Button.onClick (MsgDelete dataSelected) ] [ text "Delete" ]
 
-        ButtonDeleteConfirm -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.danger, Button.onClick (MsgDeleteConfirm itemSelected) ] [ text "Delete" ]
+        ButtonDeleteConfirm -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.danger, Button.onClick (MsgDeleteConfirm dataSelected) ] [ text "Delete" ]
 
-        ButtonUpdate -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.success, Button.onClick (MsgUpdate itemSelected) ] [ text "Save" ]
+        ButtonUpdate -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.success, Button.onClick (MsgUpdate dataSelected) ] [ text "Save" ]
 
-        ButtonInsert -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.success, Button.onClick (MsgInsert itemSelected) ] [ text "Save" ]
+        ButtonInsert -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.success, Button.onClick (MsgInsert dataSelected) ] [ text "Save" ]
 
         ButtonCancel -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.secondary, Button.onClick (MsgCancel) ] [ text "Cancel" ]
 
         ButtonOk -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.primary, Button.onClick (MsgCancel) ] [ text "Ok" ]
 
     
-editorButtons : Mode -> Maybe Item -> Html Msg
-editorButtons mode itemSelected =
+editorButtons : Config data -> Mode -> Maybe data -> Html (Msg data)
+editorButtons ( Config {toId, empty, columns} ) mode dataSelected =
     case mode of
         ModeChoose ->
             div []
-                [ editorButton ButtonAdd emptyItem
+                [ editorButton ButtonAdd empty
                 ]
 
         ModeSelect ->
-            case itemSelected of
+            case dataSelected of
                 Nothing ->
                     div [] [ text "Something wrong" ]
-                Just item ->
+                Just datarow ->
                     div []
-                        [ editorButton ButtonEdit item
-                        , editorButton ButtonDelete item
-                        , editorButton ButtonCancel item
+                        [ editorButton ButtonEdit datarow
+                        , editorButton ButtonDelete datarow
+                        , editorButton ButtonCancel datarow
                         ]
                     
         ModeNew ->
-            case itemSelected of
+            case dataSelected of
                 Nothing ->
                     div [] [ text "Something wrong" ]
-                Just item ->
+                Just datarow ->
                     div []
-                        [ editorButton ButtonInsert item
-                        , editorButton ButtonCancel item
+                        [ editorButton ButtonInsert datarow
+                        , editorButton ButtonCancel datarow
                         ]
                     
         ModeEdit ->
-            case itemSelected of
+            case dataSelected of
                 Nothing ->
                     div [] [ text "Something wrong" ]
-                Just item ->
+                Just datarow ->
                     div [ ]
-                        [ editorButton ButtonUpdate item
-                        , editorButton ButtonCancel item
+                        [ editorButton ButtonUpdate datarow
+                        , editorButton ButtonCancel datarow
                         ]
 
         ModeDelete ->
-            case itemSelected of
+            case dataSelected of
                 Nothing ->
                     div [] [ text "Something wrong" ]
-                Just item ->
+                Just datarow ->
                     div []
-                        [ editorButton ButtonDeleteConfirm item
-                        , editorButton ButtonCancel item
+                        [ editorButton ButtonDeleteConfirm datarow
+                        , editorButton ButtonCancel datarow
                         ]
 
 
-viewItems : Mode -> Maybe Item -> WebData (List Item) -> Html Msg
+viewItems : Mode -> Maybe Item -> WebData (List Item) -> Html (Msg Item)
 viewItems mode itemSelected items =
     case items of
         RemoteData.NotAsked ->
@@ -189,14 +280,14 @@ viewItems mode itemSelected items =
                     (viewItemsInTable mode itemSelected actualItems)
                     -- (List.map (viewItem model itemIdSelected) (actualItems ++ [ emptyItem ]) )
                 }
-            , editorButtons mode itemSelected
+            , editorButtons configItem mode itemSelected
             ]
 
         RemoteData.Failure httpError ->
             viewFetchError (buildErrorMessage httpError)
 
 
-viewFetchError : String -> Html Msg
+viewFetchError : String -> Html (Msg Item)
 viewFetchError errorMessage =
     let
         errorHeading =
@@ -208,84 +299,118 @@ viewFetchError errorMessage =
         ]
 
 
-p_itemIsSelected : Maybe Item -> Item -> Bool
-p_itemIsSelected itemSelected item =
-    case itemSelected of
+p_itemIsSelected : (data -> Int) -> Maybe data -> data -> Bool
+p_itemIsSelected toId dataSelected datarow =
+    case dataSelected of
         Nothing ->
             False
         
-        Just itemSelector ->
-            item.id == itemSelector.id
+        Just datarowSelected ->
+            toId datarow == toId datarowSelected
 
 
-viewItemsInTable : Mode -> Maybe Item -> List (Item) -> List ( Table.Row Msg )
+viewItemsInTable : Mode -> Maybe Item -> List (Item) -> List ( Table.Row (Msg Item) )
 viewItemsInTable mode itemSelected actualItems =
     case mode of
         ModeNew ->
             ( List.filter notDeleted actualItems
-              |> List.map (viewItem mode itemSelected)
+              |> List.map (viewItem configItem mode itemSelected)
             )
-            ++ [ viewItem mode itemSelected emptyItem ]
+            ++ [ viewItem configItem mode itemSelected emptyItem ]
     
         _ ->
             ( List.filter notDeleted actualItems
-              |> List.map (viewItem mode itemSelected)
+              |> List.map (viewItem configItem mode itemSelected)
             )
 
 
-viewItem : Mode -> Maybe Item -> Item -> Table.Row Msg
-viewItem mode itemSelected item  =
-    if p_itemIsSelected itemSelected item then
-        case (mode, itemSelected) of
+viewItem : Config data -> Mode -> Maybe data -> data -> Table.Row (Msg data)
+viewItem ( Config {toId, empty, columns} ) mode dataSelected datarow  =
+    if p_itemIsSelected toId dataSelected datarow then
+        case (mode, dataSelected) of
             ( ModeChoose, _ ) ->
-                Table.tr [ Table.rowAttr(onClick (MsgSelect item)) ]
-                    [ Table.td [] [ text item.name ]
-                    , Table.td [] [ text item.description ]
-                    , Table.td [] [ text item.unit ]
-                    ]
+                tablerowReadonly [ Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
+                   -- Table.tr [ Table.rowAttr(onClick (MsgSelect datarow)) ]
+                    -- (List.map (\column -> Table.td [] (column.viewdata datarow) ) columns)
+                    -- [ Table.td [] [ text datarow.name ]
+                    -- , Table.td [] [ text datarow.description ]
+                    -- , Table.td [] [ text datarow.unit ]
+                    -- ]
 
             ( ModeSelect, _ ) ->
-                Table.tr [ Table.rowPrimary , Table.rowAttr(onClick (MsgDeselect item)) ]
-                    [ Table.td [] [ text item.name ]
-                    , Table.td [] [ text item.description ]
-                    , Table.td [] [ text item.unit ]
-                    ]
+                tablerowReadonly [ Table.rowPrimary , Table.rowAttr(onClick (MsgDeselect datarow)) ] columns datarow
+                -- Table.tr [ Table.rowPrimary , Table.rowAttr(onClick (MsgDeselect datarow)) ]
+                --     [ Table.td [] [ text datarow.name ]
+                --     , Table.td [] [ text datarow.description ]
+                --     , Table.td [] [ text datarow.unit ]
+                --     ]
 
-            ( ModeEdit, Just itemSelected1 ) ->
-                Table.tr [ Table.rowActive ]
-                    [ Table.td [] [ Input.text [ Input.onInput StoreName, Input.attrs [ Attributes.placeholder "name", Attributes.value itemSelected1.name] ] ]
-                    , Table.td [] [ Input.text [ Input.onInput StoreDescription, Input.attrs [ Attributes.placeholder "description", Attributes.value itemSelected1.description ] ] ]
-                    , Table.td [] [ Input.text [ Input.onInput StoreUnit, Input.attrs [ Attributes.placeholder "unit", Attributes.value itemSelected1.unit ] ] ]
-                    ]
+            ( ModeEdit, Just datarowSelected ) ->
+                tablerowEdit [ Table.rowActive ] columns datarowSelected
+                -- Table.tr [ Table.rowActive ]
+                --     [ Table.td [] [ Input.text [ Input.onInput StoreName, Input.attrs [ Attributes.placeholder "name", Attributes.value itemSelected1.name] ] ]
+                --     , Table.td [] [ Input.text [ Input.onInput StoreDescription, Input.attrs [ Attributes.placeholder "description", Attributes.value itemSelected1.description ] ] ]
+                --     , Table.td [] [ Input.text [ Input.onInput StoreUnit, Input.attrs [ Attributes.placeholder "unit", Attributes.value itemSelected1.unit ] ] ]
+                --     ]
 
-            ( ModeDelete, Just itemSelected1 ) ->
-                Table.tr [ Table.rowDanger , Table.rowAttr(onClick (MsgSelect item)) ]
-                    [ Table.td [] [ text item.name ]
-                    , Table.td [] [ text item.description ]
-                    , Table.td [] [ text item.unit ]
-                    ]
+            ( ModeDelete, Just datarowSelected ) ->
+                tablerowReadonly [ Table.rowDanger , Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
+                -- Table.tr [ Table.rowDanger , Table.rowAttr(onClick (MsgSelect datarow)) ]
+                --     [ Table.td [] [ text datarow.name ]
+                --     , Table.td [] [ text datarow.description ]
+                --     , Table.td [] [ text datarow.unit ]
+                --     ]
 
-            ( ModeNew, Just itemSelected1 ) ->
-                Table.tr [ Table.rowActive ]
-                    [ Table.td [] [ Input.text [ Input.onInput StoreName, Input.attrs [ Attributes.placeholder "name" ] ] ] 
-                    , Table.td [] [ Input.text [ Input.onInput StoreDescription, Input.attrs [ Attributes.placeholder "description" ] ] ]
-                    , Table.td [] [ Input.text [ Input.onInput StoreUnit, Input.attrs [ Attributes.placeholder "unit" ] ] ]
-                    ]
+            ( ModeNew, Just datarowSelected ) ->
+                tablerowEdit [ Table.rowActive ] columns datarowSelected
+                -- Table.tr [ Table.rowActive ]
+                --     [ Table.td [] [ Input.text [ Input.onInput StoreName, Input.attrs [ Attributes.placeholder "name" ] ] ] 
+                --     , Table.td [] [ Input.text [ Input.onInput StoreDescription, Input.attrs [ Attributes.placeholder "description" ] ] ]
+                --     , Table.td [] [ Input.text [ Input.onInput StoreUnit, Input.attrs [ Attributes.placeholder "unit" ] ] ]
+                --     ]
             ( _, _ ) ->
                 Table.tr [] []
             
     else
         -- Table.tr [ ]
-        Table.tr [ Table.rowAttr(onDoubleClick (MsgEdit item)) , Table.rowAttr(onClick (MsgSelect item)) ]
-            [ Table.td [] [ text item.name ]
-            , Table.td [] [ text item.description ]
-            , Table.td [] [ text item.unit ]
-            ]
+        tablerowReadonly [ Table.rowAttr(onDoubleClick (MsgEdit datarow)) , Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
+        -- Table.tr [ Table.rowAttr(onDoubleClick (MsgEdit datarow)) , Table.rowAttr(onClick (MsgSelect datarow)) ]
+        --     [ Table.td [] [ text datarow.name ]
+        --     , Table.td [] [ text datarow.description ]
+        --     , Table.td [] [ text datarow.unit ]
+        --     ]
 
+
+tablerowReadonly : List (Table.RowOption (Msg data)) -> List (ColumnData data ) -> data -> Table.Row (Msg data)
+tablerowReadonly attributes columns datarow =
+    Table.tr attributes (List.map (viewDatacellReadonly datarow) columns)
+
+
+viewDatacellReadonly : data -> ColumnData data -> Table.Cell (Msg data)
+viewDatacellReadonly datarow {viewData} =
+  let
+    details =
+      viewData datarow
+  in
+    Table.td details.attributes details.children
+
+
+tablerowEdit : List (Table.RowOption (Msg data)) -> List (ColumnData data) -> data -> Table.Row (Msg data)
+tablerowEdit attributes columns datarow =
+    Table.tr attributes (List.map (viewDatacellEdit datarow) columns)
+
+
+viewDatacellEdit : data -> ColumnData data -> Table.Cell (Msg data)
+viewDatacellEdit datarow {editData} =
+  let
+    details =
+      editData datarow
+  in
+    Table.td details.attributes details.children
 
 -- UPDATE
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : (Msg Item) -> Model -> ( Model, Cmd (Msg Item) )
 update msg model =
     case msg of
         MsgFetch ->
@@ -365,7 +490,7 @@ update msg model =
                             | mode = ModeChoose
                             , items = RemoteData.succeed (selectUpdateItem item items)
                             , itemSelected = Nothing
-                            , error = "itemIdString = " ++ idToString item.id
+                            , error = "itemIdString = " ++ String.fromInt item.id
                             }
                             , Cmd.none )
                         httpError ->
@@ -412,7 +537,7 @@ update msg model =
             case model.itemSelected of
                 Just item ->
                     ( { model
-                    | itemSelected = Just (storeName item value)
+                    | itemSelected = Just (storeName value item)
                     }
                     , Cmd.none )
 
@@ -423,7 +548,7 @@ update msg model =
             case model.itemSelected of
                 Just item ->
                     ( { model
-                    | itemSelected = Just (storeDescription item value)
+                    | itemSelected = Just (storeDescription value item)
                     }
                     , Cmd.none )
 
@@ -434,13 +559,23 @@ update msg model =
             case model.itemSelected of
                 Just item ->
                     ( { model
-                    | itemSelected = Just (storeUnit item value)
+                    | itemSelected = Just (storeUnit value item)
                     }
                     , Cmd.none )
 
                 _ ->
                     ( model , Cmd.none )
         
+        Store store value ->
+            case model.itemSelected of
+                Just item ->
+                    ( { model
+                    | itemSelected = Just (store value item)
+                    }
+                    , Cmd.none )
+
+                _ ->
+                    ( model , Cmd.none )
 
 -- DATABASE
 
@@ -449,7 +584,7 @@ baseUrl =
     "http://localhost:5019/items"
 
 
-getItems : Cmd Msg
+getItems : Cmd (Msg Item)
 getItems =
     Http.get
         { url = baseUrl
@@ -459,11 +594,11 @@ getItems =
         }
 
 
-deleteItem : Item -> Cmd Msg
+deleteItem : Item -> Cmd (Msg Item)
 deleteItem item =
     let
         requestUrl = 
-            baseUrl ++ "/" ++ idToString item.id
+            baseUrl ++ "/" ++ String.fromInt item.id
         item1 = isDeleted item
     in
         Http.request
@@ -493,7 +628,7 @@ deleteItem item =
 --             , tracker = Nothing
 --             }
 
-insertItem : Item -> Cmd Msg
+insertItem : Item -> Cmd (Msg Item)
 insertItem item =
     let
         requestUrl = 
@@ -505,11 +640,11 @@ insertItem item =
             , expect = Http.expectJson ItemInserted itemDecoder
             }
 
-updateItem : Item -> Cmd Msg
+updateItem : Item -> Cmd (Msg Item)
 updateItem item =
     let
         requestUrl = 
-            baseUrl ++ "/" ++ idToString item.id
+            baseUrl ++ "/" ++ String.fromInt item.id
     in
         Http.request
             { method = "PATCH"

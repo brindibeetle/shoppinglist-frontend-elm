@@ -12,7 +12,7 @@ import Http
 
 type alias Item = 
     {
-        id : ItemId
+        id : Int
         , name : String
         , description : String
         , unit : String
@@ -32,7 +32,7 @@ itemsDecoder =
 itemDecoder : Decoder Item
 itemDecoder =
     Decode.succeed Item
-        |> required "id" idDecoder
+        |> required "id" int
         |> required "name" string
         |> required "description" string
         |> optional "unit" string ""
@@ -40,7 +40,7 @@ itemDecoder =
 itemEncoder : Item -> Encode.Value
 itemEncoder item =
     Encode.object
-        [ ( "id", encodeId item.id )
+        [ ( "id", Encode.int item.id )
         , ( "name", Encode.string item.name )
         , ( "description", Encode.string item.description )
         , ( "unit", Encode.string item.unit )
@@ -102,9 +102,9 @@ emptyItem : Item
 emptyItem = Item emptyItemId "" "" ""
 
 
-emptyItemId : ItemId
+emptyItemId : Int
 emptyItemId =
-    ItemId -1
+    -1
 
 selectSaveItem : Item -> Item -> Item
 selectSaveItem itemNew itemOld =
@@ -115,20 +115,20 @@ selectSaveItem itemNew itemOld =
 
 -- selectDeleteItem : Item -> Item -> Item
 
-storeName : Item -> String -> Item
-storeName item value =
+storeName : String -> Item -> Item
+storeName value item =
     { item
     | name = value
     }
 
-storeDescription : Item -> String -> Item
-storeDescription item value =
+storeDescription : String -> Item -> Item
+storeDescription value item =
     { item
     | description = value
     }
 
-storeUnit : Item -> String -> Item
-storeUnit item value =
+storeUnit : String -> Item -> Item
+storeUnit value item =
     { item
     | unit = value
     }

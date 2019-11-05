@@ -6,6 +6,7 @@ import Url exposing (Url)
 import Html exposing (..)
 import Route exposing (Route)
 
+import Domain.Item as Item exposing (..)
 import Page.ListItems as ListItems exposing (..)
 
 main : Program () Model Msg
@@ -32,7 +33,7 @@ type Page
 
 
 type Msg
-    = ListPageMsg ListItems.Msg
+    = ListPageMsg (ListItems.Msg Item.Item)
     | LinkClicked UrlRequest
     | UrlChanged Url
 
