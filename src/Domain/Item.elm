@@ -1,6 +1,6 @@
 module Domain.Item exposing (Item, ItemId, itemFromName, itemDecoder, itemEncoder, newItemEncoder,itemsDecoder, emptyItem, emptyItemId
-    , idToString, idFromString, itemIdDecoder, itemIdEncoder, isDeleted, notDeleted
-    , selectSaveItem, storeName, storeDescription, storeUnit)
+    , idToString, idFromString, itemIdDecoder, itemIdEncoder
+    , selectSaveItem, storeId, storeName, storeDescription, storeUnit)
 
 import Array exposing (Array)
 import Json.Decode as Decode exposing (..)
@@ -115,6 +115,13 @@ selectSaveItem itemNew itemOld =
 
 -- selectDeleteItem : Item -> Item -> Item
 
+storeId : Int -> Item -> Item
+storeId id item =
+    { item
+    | id = id
+    }
+
+
 storeName : String -> Item -> Item
 storeName value item =
     { item
@@ -134,13 +141,13 @@ storeUnit value item =
     }
 
 
-isDeleted : Item -> Item
-isDeleted item =
-    { item
-    | name = "<<DELETED>>"
-    }
+-- isDeleted : Item -> Item
+-- isDeleted item =
+--     { item
+--     | name = "<<DELETED>>"
+--     }
 
 
-notDeleted : Item -> Bool
-notDeleted item =
-    item.name /= "<<DELETED>>"
+-- notDeleted : Item -> Bool
+-- notDeleted item =
+--     item.name /= "<<DELETED>>"

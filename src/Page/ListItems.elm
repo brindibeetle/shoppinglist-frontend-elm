@@ -25,22 +25,22 @@ import Error exposing (buildErrorMessage)
 type Config data =
   Config
     { toId : data -> Int
-    -- , toMsg : msg
+    , storeId : Int -> data -> data
     , empty : data
     , columns : List (ColumnData data )
     }
 
 config
   : { toId : data -> Int
-    -- , toMsg : msg
+    , storeId : Int -> data -> data
     , empty : data
     , columns : List (Column data)
     }
   -> Config data
-config { toId, empty, columns } =
+config { toId, storeId, empty, columns } =
   Config
     { toId = toId
-    -- , toMsg = toMsg
+    , storeId = storeId
     , empty = empty
     , columns = List.map (\(Column cData) -> cData) columns
     }
@@ -86,8 +86,6 @@ textDetails str =
 inputDetails : String -> (String -> data -> data) -> String -> HtmlDetails (Msg data)
 inputDetails str store placeholder =
     HtmlDetails [] [ Input.text [ Input.onInput (Store store), Input.attrs [ Attributes.placeholder placeholder, Attributes.value str] ] ]
-    --   HtmlDetails [] [ Input.text [ Input.onInput store str, Input.attrs [ Attributes.placeholder "name", Attributes.value str] ]  ]
--- Table.td [] [ Input.text [ Input.onInput StoreName, Input.attrs [ Attributes.placeholder "name", Attributes.value itemSelected1.name] ] ]
 
 type alias HtmlDetails msg =
   { attributes : List (Table.CellOption msg)
@@ -100,7 +98,7 @@ configItem : Config Item
 configItem =
   config
     { toId = .id
-    -- , toMsg = Msg
+    , storeId = storeId
     , empty = emptyItem
     , columns =
         [ stringColumn "Name" .name storeName
@@ -134,9 +132,6 @@ type Msg data
     | ItemDeleted (Result Http.Error data)
     | ItemInserted (Result Http.Error data)
     | ItemUpdated (Result Http.Error data)
-    | StoreName String 
-    | StoreDescription String 
-    | StoreUnit String 
     | Store (String -> data -> data) String
 
 
@@ -170,7 +165,7 @@ view model =
             [ button [ onClick MsgFetch ]
                 [ text "Refresh data" ]
             , text model.error 
-            , viewItems model.mode model.itemSelected model.items
+            , viewItems configItem model.mode model.itemSelected model.items
             ]
         ]
 
@@ -206,8 +201,8 @@ editorButton button dataSelected =
         ButtonOk -> Button.button [ Button.small, Button.attrs( [Spacing.mr2]), Button.primary, Button.onClick (MsgCancel) ] [ text "Ok" ]
 
     
-editorButtons : Config data -> Mode -> Maybe data -> Html (Msg data)
-editorButtons ( Config {toId, empty, columns} ) mode dataSelected =
+editorButtons : data -> Mode -> Maybe data -> Html (Msg data)
+editorButtons empty mode dataSelected =
     case mode of
         ModeChoose ->
             div []
@@ -256,8 +251,8 @@ editorButtons ( Config {toId, empty, columns} ) mode dataSelected =
                         ]
 
 
-viewItems : Mode -> Maybe Item -> WebData (List Item) -> Html (Msg Item)
-viewItems mode itemSelected items =
+viewItems : Config data -> Mode -> Maybe data -> WebData (List data) -> Html (Msg data)
+viewItems ( Config {toId, storeId, empty, columns} ) mode itemSelected items =
     case items of
         RemoteData.NotAsked ->
             text ""
@@ -277,17 +272,17 @@ viewItems mode itemSelected items =
                         ]
                     ]
                 , tbody = Table.tbody []
-                    (viewItemsInTable mode itemSelected actualItems)
+                    (viewItemsInTable columns toId empty mode itemSelected actualItems)
                     -- (List.map (viewItem model itemIdSelected) (actualItems ++ [ emptyItem ]) )
                 }
-            , editorButtons configItem mode itemSelected
+            , editorButtons empty mode itemSelected
             ]
 
         RemoteData.Failure httpError ->
             viewFetchError (buildErrorMessage httpError)
 
 
-viewFetchError : String -> Html (Msg Item)
+viewFetchError : String -> Html (Msg data)
 viewFetchError errorMessage =
     let
         errorHeading =
@@ -309,76 +304,45 @@ p_itemIsSelected toId dataSelected datarow =
             toId datarow == toId datarowSelected
 
 
-viewItemsInTable : Mode -> Maybe Item -> List (Item) -> List ( Table.Row (Msg Item) )
-viewItemsInTable mode itemSelected actualItems =
+viewItemsInTable : List (ColumnData data ) -> (data -> Int) -> data -> Mode -> Maybe data -> List (data) -> List ( Table.Row (Msg data) )
+viewItemsInTable columns toId empty mode datarowSelected datarows =
     case mode of
         ModeNew ->
-            ( List.filter notDeleted actualItems
-              |> List.map (viewItem configItem mode itemSelected)
+            ( List.filter (notDeleted <| toId) datarows
+              |> List.map (tableRow columns toId mode datarowSelected)
             )
-            ++ [ viewItem configItem mode itemSelected emptyItem ]
+            ++ [ tableRow columns toId mode datarowSelected empty ]
     
         _ ->
-            ( List.filter notDeleted actualItems
-              |> List.map (viewItem configItem mode itemSelected)
+            ( List.filter (notDeleted <| toId) datarows
+              |> List.map (tableRow columns toId  mode datarowSelected)
             )
 
 
-viewItem : Config data -> Mode -> Maybe data -> data -> Table.Row (Msg data)
-viewItem ( Config {toId, empty, columns} ) mode dataSelected datarow  =
+tableRow : List (ColumnData data ) -> (data -> Int) -> Mode -> Maybe data -> data -> Table.Row (Msg data)
+tableRow columns toId mode dataSelected datarow  =
     if p_itemIsSelected toId dataSelected datarow then
         case (mode, dataSelected) of
             ( ModeChoose, _ ) ->
                 tablerowReadonly [ Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
-                   -- Table.tr [ Table.rowAttr(onClick (MsgSelect datarow)) ]
-                    -- (List.map (\column -> Table.td [] (column.viewdata datarow) ) columns)
-                    -- [ Table.td [] [ text datarow.name ]
-                    -- , Table.td [] [ text datarow.description ]
-                    -- , Table.td [] [ text datarow.unit ]
-                    -- ]
 
             ( ModeSelect, _ ) ->
                 tablerowReadonly [ Table.rowPrimary , Table.rowAttr(onClick (MsgDeselect datarow)) ] columns datarow
-                -- Table.tr [ Table.rowPrimary , Table.rowAttr(onClick (MsgDeselect datarow)) ]
-                --     [ Table.td [] [ text datarow.name ]
-                --     , Table.td [] [ text datarow.description ]
-                --     , Table.td [] [ text datarow.unit ]
-                --     ]
 
             ( ModeEdit, Just datarowSelected ) ->
                 tablerowEdit [ Table.rowActive ] columns datarowSelected
-                -- Table.tr [ Table.rowActive ]
-                --     [ Table.td [] [ Input.text [ Input.onInput StoreName, Input.attrs [ Attributes.placeholder "name", Attributes.value itemSelected1.name] ] ]
-                --     , Table.td [] [ Input.text [ Input.onInput StoreDescription, Input.attrs [ Attributes.placeholder "description", Attributes.value itemSelected1.description ] ] ]
-                --     , Table.td [] [ Input.text [ Input.onInput StoreUnit, Input.attrs [ Attributes.placeholder "unit", Attributes.value itemSelected1.unit ] ] ]
-                --     ]
 
             ( ModeDelete, Just datarowSelected ) ->
                 tablerowReadonly [ Table.rowDanger , Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
-                -- Table.tr [ Table.rowDanger , Table.rowAttr(onClick (MsgSelect datarow)) ]
-                --     [ Table.td [] [ text datarow.name ]
-                --     , Table.td [] [ text datarow.description ]
-                --     , Table.td [] [ text datarow.unit ]
-                --     ]
 
             ( ModeNew, Just datarowSelected ) ->
                 tablerowEdit [ Table.rowActive ] columns datarowSelected
-                -- Table.tr [ Table.rowActive ]
-                --     [ Table.td [] [ Input.text [ Input.onInput StoreName, Input.attrs [ Attributes.placeholder "name" ] ] ] 
-                --     , Table.td [] [ Input.text [ Input.onInput StoreDescription, Input.attrs [ Attributes.placeholder "description" ] ] ]
-                --     , Table.td [] [ Input.text [ Input.onInput StoreUnit, Input.attrs [ Attributes.placeholder "unit" ] ] ]
-                --     ]
+
             ( _, _ ) ->
                 Table.tr [] []
             
     else
-        -- Table.tr [ ]
         tablerowReadonly [ Table.rowAttr(onDoubleClick (MsgEdit datarow)) , Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
-        -- Table.tr [ Table.rowAttr(onDoubleClick (MsgEdit datarow)) , Table.rowAttr(onClick (MsgSelect datarow)) ]
-        --     [ Table.td [] [ text datarow.name ]
-        --     , Table.td [] [ text datarow.description ]
-        --     , Table.td [] [ text datarow.unit ]
-        --     ]
 
 
 tablerowReadonly : List (Table.RowOption (Msg data)) -> List (ColumnData data ) -> data -> Table.Row (Msg data)
@@ -407,6 +371,15 @@ viewDatacellEdit datarow {editData} =
       editData datarow
   in
     Table.td details.attributes details.children
+
+
+notDeleted : (data -> Int) -> data -> Bool
+notDeleted toId datarow =
+    toId datarow > 0
+
+isDeleted : data -> (data -> Int) -> (data -> Int -> data) -> data
+isDeleted datarow toId storeId =
+    storeId datarow (0 - (toId datarow))
 
 -- UPDATE
 
@@ -533,39 +506,6 @@ update msg model =
                         _ ->
                             ( model, Cmd.none )
 
-        StoreName value ->
-            case model.itemSelected of
-                Just item ->
-                    ( { model
-                    | itemSelected = Just (storeName value item)
-                    }
-                    , Cmd.none )
-
-                _ ->
-                    ( model , Cmd.none )
-        
-        StoreDescription value ->
-            case model.itemSelected of
-                Just item ->
-                    ( { model
-                    | itemSelected = Just (storeDescription value item)
-                    }
-                    , Cmd.none )
-
-                _ ->
-                    ( model , Cmd.none )
-        
-        StoreUnit value ->
-            case model.itemSelected of
-                Just item ->
-                    ( { model
-                    | itemSelected = Just (storeUnit value item)
-                    }
-                    , Cmd.none )
-
-                _ ->
-                    ( model , Cmd.none )
-        
         Store store value ->
             case model.itemSelected of
                 Just item ->
@@ -599,7 +539,8 @@ deleteItem item =
     let
         requestUrl = 
             baseUrl ++ "/" ++ String.fromInt item.id
-        item1 = isDeleted item
+        item1 = item
+        -- item1 = isDeleted item
     in
         Http.request
             { method = "PATCH"
