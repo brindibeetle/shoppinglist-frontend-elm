@@ -1,5 +1,5 @@
 module Domain.Item exposing (Item, ItemId, itemFromName, itemDecoder, itemEncoder, newItemEncoder,itemsDecoder, emptyItem, emptyItemId
-    , idToString, idFromString, itemIdDecoder, itemIdEncoder
+    , idToString, idFromString, itemIdDecoder, encodeId
     , selectSaveItem, storeId, storeName, storeDescription, storeUnit)
 
 import Array exposing (Array)
@@ -65,10 +65,10 @@ itemIdDecoder =
         |> required "id" int
 
 
-itemIdEncoder : ItemId -> Encode.Value
-itemIdEncoder itemId =
-    Encode.object
-        [ ("id", encodeId itemId)]
+-- itemIdEncoder : ItemId -> Encode.Value
+-- itemIdEncoder itemId =
+--     Encode.object
+--         [ ("id", encodeId itemId)]
 
 
 idToString : ItemId -> String
@@ -93,8 +93,8 @@ idDecoder =
     Decode.map ItemId int
 
 
-encodeId : ItemId -> Encode.Value
-encodeId (ItemId id) =
+encodeId : Int -> Encode.Value
+encodeId id =
     Encode.int id
 
 

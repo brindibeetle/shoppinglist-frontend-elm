@@ -6400,7 +6400,22 @@ var author$project$Page$ListItems$ModeDelete = {$: 'ModeDelete'};
 var author$project$Page$ListItems$ModeEdit = {$: 'ModeEdit'};
 var author$project$Page$ListItems$ModeNew = {$: 'ModeNew'};
 var author$project$Page$ListItems$ModeSelect = {$: 'ModeSelect'};
-var elm$json$Json$Encode$int = _Json_wrap;
+var author$project$Page$ListItems$ItemDeleted = function (a) {
+	return {$: 'ItemDeleted', a: a};
+};
+var author$project$Page$ListItems$deleteItem = function (item) {
+	var requestUrl = author$project$Page$ListItems$baseUrl + ('/' + elm$core$String$fromInt(item.id));
+	return elm$http$Http$request(
+		{
+			body: elm$http$Http$emptyBody,
+			expect: A2(elm$http$Http$expectJson, author$project$Page$ListItems$ItemDeleted, author$project$Domain$Item$itemDecoder),
+			headers: _List_Nil,
+			method: 'DELETE',
+			timeout: elm$core$Maybe$Nothing,
+			tracker: elm$core$Maybe$Nothing,
+			url: requestUrl
+		});
+};
 var elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -6415,48 +6430,6 @@ var elm$json$Json$Encode$object = function (pairs) {
 			pairs));
 };
 var elm$json$Json$Encode$string = _Json_wrap;
-var author$project$Domain$Item$itemEncoder = function (item) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				elm$json$Json$Encode$int(item.id)),
-				_Utils_Tuple2(
-				'name',
-				elm$json$Json$Encode$string(item.name)),
-				_Utils_Tuple2(
-				'description',
-				elm$json$Json$Encode$string(item.description)),
-				_Utils_Tuple2(
-				'unit',
-				elm$json$Json$Encode$string(item.unit))
-			]));
-};
-var author$project$Page$ListItems$ItemDeleted = function (a) {
-	return {$: 'ItemDeleted', a: a};
-};
-var elm$http$Http$jsonBody = function (value) {
-	return A2(
-		_Http_pair,
-		'application/json',
-		A2(elm$json$Json$Encode$encode, 0, value));
-};
-var author$project$Page$ListItems$deleteItem = function (item) {
-	var requestUrl = author$project$Page$ListItems$baseUrl + ('/' + elm$core$String$fromInt(item.id));
-	var item1 = item;
-	return elm$http$Http$request(
-		{
-			body: elm$http$Http$jsonBody(
-				author$project$Domain$Item$itemEncoder(item1)),
-			expect: A2(elm$http$Http$expectJson, author$project$Page$ListItems$ItemDeleted, author$project$Domain$Item$itemDecoder),
-			headers: _List_Nil,
-			method: 'PATCH',
-			timeout: elm$core$Maybe$Nothing,
-			tracker: elm$core$Maybe$Nothing,
-			url: requestUrl
-		});
-};
 var author$project$Domain$Item$newItemEncoder = function (item) {
 	return elm$json$Json$Encode$object(
 		_List_fromArray(
@@ -6475,6 +6448,12 @@ var author$project$Domain$Item$newItemEncoder = function (item) {
 var author$project$Page$ListItems$ItemInserted = function (a) {
 	return {$: 'ItemInserted', a: a};
 };
+var elm$http$Http$jsonBody = function (value) {
+	return A2(
+		_Http_pair,
+		'application/json',
+		A2(elm$json$Json$Encode$encode, 0, value));
+};
 var elm$http$Http$post = function (r) {
 	return elm$http$Http$request(
 		{body: r.body, expect: r.expect, headers: _List_Nil, method: 'POST', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
@@ -6490,6 +6469,26 @@ var author$project$Page$ListItems$insertItem = function (item) {
 		});
 };
 var elm$core$Basics$neq = _Utils_notEqual;
+var elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var author$project$Page$ListItems$selectDeleteItem = F2(
+	function (itemSelected, items) {
+		return A2(
+			elm$core$List$filter,
+			function (item) {
+				return !_Utils_eq(item.id, itemSelected.id);
+			},
+			items);
+	});
 var author$project$Domain$Item$selectSaveItem = F2(
 	function (itemNew, itemOld) {
 		return (!_Utils_eq(itemOld.id, itemNew.id)) ? itemOld : itemNew;
@@ -6501,6 +6500,25 @@ var author$project$Page$ListItems$selectUpdateItem = F2(
 			author$project$Domain$Item$selectSaveItem(itemSelected),
 			items);
 	});
+var elm$json$Json$Encode$int = _Json_wrap;
+var author$project$Domain$Item$itemEncoder = function (item) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'id',
+				elm$json$Json$Encode$int(item.id)),
+				_Utils_Tuple2(
+				'name',
+				elm$json$Json$Encode$string(item.name)),
+				_Utils_Tuple2(
+				'description',
+				elm$json$Json$Encode$string(item.description)),
+				_Utils_Tuple2(
+				'unit',
+				elm$json$Json$Encode$string(item.unit))
+			]));
+};
 var author$project$Page$ListItems$ItemUpdated = function (a) {
 	return {$: 'ItemUpdated', a: a};
 };
@@ -6620,7 +6638,7 @@ var author$project$Page$ListItems$update = F2(
 									error: 'itemIdString = ' + elm$core$String$fromInt(item.id),
 									itemSelected: elm$core$Maybe$Nothing,
 									items: krisajenkins$remotedata$RemoteData$succeed(
-										A2(author$project$Page$ListItems$selectUpdateItem, item, items)),
+										A2(author$project$Page$ListItems$selectDeleteItem, item, items)),
 									mode: author$project$Page$ListItems$ModeChoose
 								}),
 							elm$core$Platform$Cmd$none);
@@ -7469,17 +7487,6 @@ var rundis$elm_bootstrap$Bootstrap$Button$attrs = function (attrs_) {
 	return rundis$elm_bootstrap$Bootstrap$Internal$Button$Attrs(attrs_);
 };
 var elm$html$Html$button = _VirtualDom_node('button');
-var elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
 var elm$core$Tuple$second = function (_n0) {
 	var y = _n0.b;
 	return y;
@@ -7890,23 +7897,6 @@ var author$project$Page$ListItems$editorButtons = F3(
 				}
 		}
 	});
-var author$project$Page$ListItems$viewFetchError = function (errorMessage) {
-	var errorHeading = 'Couldn\'t fetch posts at this time.';
-	return A2(
-		elm$html$Html$div,
-		_List_Nil,
-		_List_fromArray(
-			[
-				A2(
-				elm$html$Html$h3,
-				_List_Nil,
-				_List_fromArray(
-					[
-						elm$html$Html$text(errorHeading)
-					])),
-				elm$html$Html$text('Error: ' + errorMessage)
-			]));
-};
 var author$project$Page$ListItems$notDeleted = F2(
 	function (toId, datarow) {
 		return toId(datarow) > 0;
@@ -7936,7 +7926,7 @@ var rundis$elm_bootstrap$Bootstrap$Table$td = F2(
 		return rundis$elm_bootstrap$Bootstrap$Table$Td(
 			{children: children, options: options});
 	});
-var author$project$Page$ListItems$viewDatacellEdit = F2(
+var author$project$Page$ListItems$tableDataCellEdit = F2(
 	function (datarow, _n0) {
 		var editData = _n0.editData;
 		var details = editData(datarow);
@@ -7950,30 +7940,30 @@ var rundis$elm_bootstrap$Bootstrap$Table$tr = F2(
 		return rundis$elm_bootstrap$Bootstrap$Table$Row(
 			{cells: cells, options: options});
 	});
-var author$project$Page$ListItems$tablerowEdit = F3(
+var author$project$Page$ListItems$tableDataRowEdit = F3(
 	function (attributes, columns, datarow) {
 		return A2(
 			rundis$elm_bootstrap$Bootstrap$Table$tr,
 			attributes,
 			A2(
 				elm$core$List$map,
-				author$project$Page$ListItems$viewDatacellEdit(datarow),
+				author$project$Page$ListItems$tableDataCellEdit(datarow),
 				columns));
 	});
-var author$project$Page$ListItems$viewDatacellReadonly = F2(
+var author$project$Page$ListItems$tableDataCellReadonly = F2(
 	function (datarow, _n0) {
 		var viewData = _n0.viewData;
 		var details = viewData(datarow);
 		return A2(rundis$elm_bootstrap$Bootstrap$Table$td, details.attributes, details.children);
 	});
-var author$project$Page$ListItems$tablerowReadonly = F3(
+var author$project$Page$ListItems$tableDataRowReadonly = F3(
 	function (attributes, columns, datarow) {
 		return A2(
 			rundis$elm_bootstrap$Bootstrap$Table$tr,
 			attributes,
 			A2(
 				elm$core$List$map,
-				author$project$Page$ListItems$viewDatacellReadonly(datarow),
+				author$project$Page$ListItems$tableDataCellReadonly(datarow),
 				columns));
 	});
 var elm$virtual_dom$VirtualDom$Normal = function (a) {
@@ -8018,7 +8008,7 @@ var rundis$elm_bootstrap$Bootstrap$Table$rowDanger = rundis$elm_bootstrap$Bootst
 var rundis$elm_bootstrap$Bootstrap$Internal$Role$Primary = {$: 'Primary'};
 var rundis$elm_bootstrap$Bootstrap$Table$rowPrimary = rundis$elm_bootstrap$Bootstrap$Table$RoledRow(
 	rundis$elm_bootstrap$Bootstrap$Table$Roled(rundis$elm_bootstrap$Bootstrap$Internal$Role$Primary));
-var author$project$Page$ListItems$tableRow = F5(
+var author$project$Page$ListItems$tableDataRow = F5(
 	function (columns, toId, mode, dataSelected, datarow) {
 		if (A3(author$project$Page$ListItems$p_itemIsSelected, toId, dataSelected, datarow)) {
 			var _n0 = _Utils_Tuple2(mode, dataSelected);
@@ -8028,7 +8018,7 @@ var author$project$Page$ListItems$tableRow = F5(
 					case 'ModeChoose':
 						var _n1 = _n0.a;
 						return A3(
-							author$project$Page$ListItems$tablerowReadonly,
+							author$project$Page$ListItems$tableDataRowReadonly,
 							_List_fromArray(
 								[
 									rundis$elm_bootstrap$Bootstrap$Table$rowAttr(
@@ -8040,7 +8030,7 @@ var author$project$Page$ListItems$tableRow = F5(
 					case 'ModeSelect':
 						var _n2 = _n0.a;
 						return A3(
-							author$project$Page$ListItems$tablerowReadonly,
+							author$project$Page$ListItems$tableDataRowReadonly,
 							_List_fromArray(
 								[
 									rundis$elm_bootstrap$Bootstrap$Table$rowPrimary,
@@ -8055,7 +8045,7 @@ var author$project$Page$ListItems$tableRow = F5(
 							var _n3 = _n0.a;
 							var datarowSelected = _n0.b.a;
 							return A3(
-								author$project$Page$ListItems$tablerowEdit,
+								author$project$Page$ListItems$tableDataRowEdit,
 								_List_fromArray(
 									[rundis$elm_bootstrap$Bootstrap$Table$rowActive]),
 								columns,
@@ -8068,7 +8058,7 @@ var author$project$Page$ListItems$tableRow = F5(
 							var _n4 = _n0.a;
 							var datarowSelected = _n0.b.a;
 							return A3(
-								author$project$Page$ListItems$tablerowReadonly,
+								author$project$Page$ListItems$tableDataRowReadonly,
 								_List_fromArray(
 									[
 										rundis$elm_bootstrap$Bootstrap$Table$rowDanger,
@@ -8086,7 +8076,7 @@ var author$project$Page$ListItems$tableRow = F5(
 							var _n5 = _n0.a;
 							var datarowSelected = _n0.b.a;
 							return A3(
-								author$project$Page$ListItems$tablerowEdit,
+								author$project$Page$ListItems$tableDataRowEdit,
 								_List_fromArray(
 									[rundis$elm_bootstrap$Bootstrap$Table$rowActive]),
 								columns,
@@ -8099,7 +8089,7 @@ var author$project$Page$ListItems$tableRow = F5(
 			return A2(rundis$elm_bootstrap$Bootstrap$Table$tr, _List_Nil, _List_Nil);
 		} else {
 			return A3(
-				author$project$Page$ListItems$tablerowReadonly,
+				author$project$Page$ListItems$tableDataRowReadonly,
 				_List_fromArray(
 					[
 						rundis$elm_bootstrap$Bootstrap$Table$rowAttr(
@@ -8113,31 +8103,71 @@ var author$project$Page$ListItems$tableRow = F5(
 				datarow);
 		}
 	});
-var author$project$Page$ListItems$viewItemsInTable = F6(
+var author$project$Page$ListItems$tableDataRows = F6(
 	function (columns, toId, empty, mode, datarowSelected, datarows) {
 		if (mode.$ === 'ModeNew') {
 			return _Utils_ap(
 				A2(
 					elm$core$List$map,
-					A4(author$project$Page$ListItems$tableRow, columns, toId, mode, datarowSelected),
+					A4(author$project$Page$ListItems$tableDataRow, columns, toId, mode, datarowSelected),
 					A2(
 						elm$core$List$filter,
 						author$project$Page$ListItems$notDeleted(toId),
 						datarows)),
 				_List_fromArray(
 					[
-						A5(author$project$Page$ListItems$tableRow, columns, toId, mode, datarowSelected, empty)
+						A5(author$project$Page$ListItems$tableDataRow, columns, toId, mode, datarowSelected, empty)
 					]));
 		} else {
 			return A2(
 				elm$core$List$map,
-				A4(author$project$Page$ListItems$tableRow, columns, toId, mode, datarowSelected),
+				A4(author$project$Page$ListItems$tableDataRow, columns, toId, mode, datarowSelected),
 				A2(
 					elm$core$List$filter,
 					author$project$Page$ListItems$notDeleted(toId),
 					datarows));
 		}
 	});
+var rundis$elm_bootstrap$Bootstrap$Table$Th = function (a) {
+	return {$: 'Th', a: a};
+};
+var rundis$elm_bootstrap$Bootstrap$Table$th = F2(
+	function (options, children) {
+		return rundis$elm_bootstrap$Bootstrap$Table$Th(
+			{children: children, options: options});
+	});
+var author$project$Page$ListItems$tableTitleCell = function (column) {
+	return A2(
+		rundis$elm_bootstrap$Bootstrap$Table$th,
+		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$text(column.name)
+			]));
+};
+var author$project$Page$ListItems$tableTitleRow = function (columns) {
+	return A2(
+		rundis$elm_bootstrap$Bootstrap$Table$tr,
+		_List_Nil,
+		A2(elm$core$List$map, author$project$Page$ListItems$tableTitleCell, columns));
+};
+var author$project$Page$ListItems$viewFetchError = function (errorMessage) {
+	var errorHeading = 'Couldn\'t fetch posts at this time.';
+	return A2(
+		elm$html$Html$div,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				elm$html$Html$h3,
+				_List_Nil,
+				_List_fromArray(
+					[
+						elm$html$Html$text(errorHeading)
+					])),
+				elm$html$Html$text('Error: ' + errorMessage)
+			]));
+};
 var rundis$elm_bootstrap$Bootstrap$Table$Bordered = {$: 'Bordered'};
 var rundis$elm_bootstrap$Bootstrap$Table$bordered = rundis$elm_bootstrap$Bootstrap$Table$Bordered;
 var rundis$elm_bootstrap$Bootstrap$Table$Hover = {$: 'Hover'};
@@ -8189,9 +8219,6 @@ var rundis$elm_bootstrap$Bootstrap$Table$KeyedRow = function (a) {
 };
 var rundis$elm_bootstrap$Bootstrap$Table$InversedCell = function (a) {
 	return {$: 'InversedCell', a: a};
-};
-var rundis$elm_bootstrap$Bootstrap$Table$Th = function (a) {
-	return {$: 'Th', a: a};
 };
 var rundis$elm_bootstrap$Bootstrap$Table$mapInversedCell = function (cell) {
 	var inverseOptions = function (options) {
@@ -8690,11 +8717,6 @@ var rundis$elm_bootstrap$Bootstrap$Table$tbody = F2(
 		return rundis$elm_bootstrap$Bootstrap$Table$TBody(
 			{attributes: attributes, rows: rows});
 	});
-var rundis$elm_bootstrap$Bootstrap$Table$th = F2(
-	function (options, children) {
-		return rundis$elm_bootstrap$Bootstrap$Table$Th(
-			{children: children, options: options});
-	});
 var rundis$elm_bootstrap$Bootstrap$Table$thead = F2(
 	function (options, rows) {
 		return rundis$elm_bootstrap$Bootstrap$Table$THead(
@@ -8731,39 +8753,13 @@ var author$project$Page$ListItems$viewItems = F4(
 								tbody: A2(
 									rundis$elm_bootstrap$Bootstrap$Table$tbody,
 									_List_Nil,
-									A6(author$project$Page$ListItems$viewItemsInTable, columns, toId, empty, mode, itemSelected, actualItems)),
+									A6(author$project$Page$ListItems$tableDataRows, columns, toId, empty, mode, itemSelected, actualItems)),
 								thead: A2(
 									rundis$elm_bootstrap$Bootstrap$Table$thead,
 									_List_Nil,
 									_List_fromArray(
 										[
-											A2(
-											rundis$elm_bootstrap$Bootstrap$Table$tr,
-											_List_Nil,
-											_List_fromArray(
-												[
-													A2(
-													rundis$elm_bootstrap$Bootstrap$Table$th,
-													_List_Nil,
-													_List_fromArray(
-														[
-															elm$html$Html$text('name')
-														])),
-													A2(
-													rundis$elm_bootstrap$Bootstrap$Table$th,
-													_List_Nil,
-													_List_fromArray(
-														[
-															elm$html$Html$text('description')
-														])),
-													A2(
-													rundis$elm_bootstrap$Bootstrap$Table$th,
-													_List_Nil,
-													_List_fromArray(
-														[
-															elm$html$Html$text('unit')
-														]))
-												]))
+											author$project$Page$ListItems$tableTitleRow(columns)
 										]))
 							}),
 							A3(author$project$Page$ListItems$editorButtons, empty, mode, itemSelected)

@@ -265,14 +265,15 @@ viewItems ( Config {toId, storeId, empty, columns} ) mode itemSelected items =
             [ Table.table 
                 { options = [ Table.hover, Table.bordered, Table.small ]
                 , thead = Table.thead []
-                    [ Table.tr [ ]
-                        [ Table.th [] [ text "name" ]
-                        , Table.th [] [ text "description" ]
-                        , Table.th [] [ text "unit" ]
-                        ]
-                    ]
+                    [ (tableTitleRow columns) ]
+                    -- [ Table.tr [ ]
+                    --     [ Table.th [] [ text "name" ]
+                    --     , Table.th [] [ text "description" ]
+                    --     , Table.th [] [ text "unit" ]
+                    --     ]
+                    -- ]
                 , tbody = Table.tbody []
-                    (viewItemsInTable columns toId empty mode itemSelected actualItems)
+                    (tableDataRows columns toId empty mode itemSelected actualItems)
                     -- (List.map (viewItem model itemIdSelected) (actualItems ++ [ emptyItem ]) )
                 }
             , editorButtons empty mode itemSelected
@@ -304,54 +305,62 @@ p_itemIsSelected toId dataSelected datarow =
             toId datarow == toId datarowSelected
 
 
-viewItemsInTable : List (ColumnData data ) -> (data -> Int) -> data -> Mode -> Maybe data -> List (data) -> List ( Table.Row (Msg data) )
-viewItemsInTable columns toId empty mode datarowSelected datarows =
+tableTitleRow : List (ColumnData data ) -> Table.Row (Msg data)
+tableTitleRow columns =
+    Table.tr [] (List.map (tableTitleCell) columns)
+
+tableTitleCell : ColumnData data -> Table.Cell (Msg data)
+tableTitleCell column =
+    Table.th [] [ text column.name ]
+
+tableDataRows : List (ColumnData data ) -> (data -> Int) -> data -> Mode -> Maybe data -> List (data) -> List ( Table.Row (Msg data) )
+tableDataRows columns toId empty mode datarowSelected datarows =
     case mode of
         ModeNew ->
             ( List.filter (notDeleted <| toId) datarows
-              |> List.map (tableRow columns toId mode datarowSelected)
+              |> List.map (tableDataRow columns toId mode datarowSelected)
             )
-            ++ [ tableRow columns toId mode datarowSelected empty ]
+            ++ [ tableDataRow columns toId mode datarowSelected empty ]
     
         _ ->
             ( List.filter (notDeleted <| toId) datarows
-              |> List.map (tableRow columns toId  mode datarowSelected)
+              |> List.map (tableDataRow columns toId  mode datarowSelected)
             )
 
 
-tableRow : List (ColumnData data ) -> (data -> Int) -> Mode -> Maybe data -> data -> Table.Row (Msg data)
-tableRow columns toId mode dataSelected datarow  =
+tableDataRow : List (ColumnData data ) -> (data -> Int) -> Mode -> Maybe data -> data -> Table.Row (Msg data)
+tableDataRow columns toId mode dataSelected datarow  =
     if p_itemIsSelected toId dataSelected datarow then
         case (mode, dataSelected) of
             ( ModeChoose, _ ) ->
-                tablerowReadonly [ Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
+                tableDataRowReadonly [ Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
 
             ( ModeSelect, _ ) ->
-                tablerowReadonly [ Table.rowPrimary , Table.rowAttr(onClick (MsgDeselect datarow)) ] columns datarow
+                tableDataRowReadonly [ Table.rowPrimary , Table.rowAttr(onClick (MsgDeselect datarow)) ] columns datarow
 
             ( ModeEdit, Just datarowSelected ) ->
-                tablerowEdit [ Table.rowActive ] columns datarowSelected
+                tableDataRowEdit [ Table.rowActive ] columns datarowSelected
 
             ( ModeDelete, Just datarowSelected ) ->
-                tablerowReadonly [ Table.rowDanger , Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
+                tableDataRowReadonly [ Table.rowDanger , Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
 
             ( ModeNew, Just datarowSelected ) ->
-                tablerowEdit [ Table.rowActive ] columns datarowSelected
+                tableDataRowEdit [ Table.rowActive ] columns datarowSelected
 
             ( _, _ ) ->
                 Table.tr [] []
             
     else
-        tablerowReadonly [ Table.rowAttr(onDoubleClick (MsgEdit datarow)) , Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
+        tableDataRowReadonly [ Table.rowAttr(onDoubleClick (MsgEdit datarow)) , Table.rowAttr(onClick (MsgSelect datarow)) ] columns datarow
 
 
-tablerowReadonly : List (Table.RowOption (Msg data)) -> List (ColumnData data ) -> data -> Table.Row (Msg data)
-tablerowReadonly attributes columns datarow =
-    Table.tr attributes (List.map (viewDatacellReadonly datarow) columns)
+tableDataRowReadonly : List (Table.RowOption (Msg data)) -> List (ColumnData data ) -> data -> Table.Row (Msg data)
+tableDataRowReadonly attributes columns datarow =
+    Table.tr attributes (List.map (tableDataCellReadonly datarow) columns)
 
 
-viewDatacellReadonly : data -> ColumnData data -> Table.Cell (Msg data)
-viewDatacellReadonly datarow {viewData} =
+tableDataCellReadonly : data -> ColumnData data -> Table.Cell (Msg data)
+tableDataCellReadonly datarow {viewData} =
   let
     details =
       viewData datarow
@@ -359,13 +368,13 @@ viewDatacellReadonly datarow {viewData} =
     Table.td details.attributes details.children
 
 
-tablerowEdit : List (Table.RowOption (Msg data)) -> List (ColumnData data) -> data -> Table.Row (Msg data)
-tablerowEdit attributes columns datarow =
-    Table.tr attributes (List.map (viewDatacellEdit datarow) columns)
+tableDataRowEdit : List (Table.RowOption (Msg data)) -> List (ColumnData data) -> data -> Table.Row (Msg data)
+tableDataRowEdit attributes columns datarow =
+    Table.tr attributes (List.map (tableDataCellEdit datarow) columns)
 
 
-viewDatacellEdit : data -> ColumnData data -> Table.Cell (Msg data)
-viewDatacellEdit datarow {editData} =
+tableDataCellEdit : data -> ColumnData data -> Table.Cell (Msg data)
+tableDataCellEdit datarow {editData} =
   let
     details =
       editData datarow
@@ -449,6 +458,7 @@ update msg model =
             , Cmd.none )
 
         ItemDeleted result_error_item ->
+        -- I Cannot get a callback with the deleted Item or the Id: done by deleting the SELECTED item
             case result_error_item of
                 Result.Err err ->
                     ( { model 
@@ -461,7 +471,7 @@ update msg model =
                         RemoteData.Success items ->
                             ( { model 
                             | mode = ModeChoose
-                            , items = RemoteData.succeed (selectUpdateItem item items)
+                            , items = RemoteData.succeed (selectDeleteItem item items)
                             , itemSelected = Nothing
                             , error = "itemIdString = " ++ String.fromInt item.id
                             }
@@ -534,40 +544,40 @@ getItems =
         }
 
 
+-- deleteItem : Item -> Cmd (Msg Item)
+-- deleteItem item =
+--     let
+--         requestUrl = 
+--             baseUrl ++ "/" ++ String.fromInt item.id
+--         item1 = item
+--         -- item1 = isDeleted item
+--     in
+--         Http.request
+--             { method = "PATCH"
+--             , headers = []
+--             , url = requestUrl
+--             , body = Http.jsonBody (itemEncoder item1)
+--             , expect = Http.expectJson ItemDeleted itemDecoder
+--             , timeout = Nothing
+--             , tracker = Nothing
+--             }
+
+
 deleteItem : Item -> Cmd (Msg Item)
 deleteItem item =
     let
         requestUrl = 
             baseUrl ++ "/" ++ String.fromInt item.id
-        item1 = item
-        -- item1 = isDeleted item
     in
         Http.request
-            { method = "PATCH"
+            { method = "DELETE"
             , headers = []
             , url = requestUrl
-            , body = Http.jsonBody (itemEncoder item1)
+            , body = Http.emptyBody
             , expect = Http.expectJson ItemDeleted itemDecoder
             , timeout = Nothing
             , tracker = Nothing
             }
-
-
--- deleteItem : Item -> Cmd Msg
--- deleteItem item =
---     let
---         requestUrl = 
---             baseUrl ++ "/" ++ idToString item.id
---     in
---         Http.request
---             { method = "DELETE"
---             , headers = []
---             , url = requestUrl
---             , body = Http.jsonBody (itemIdEncoder item.id)
---             , expect = Http.expectString ItemDeleted 
---             , timeout = Nothing
---             , tracker = Nothing
---             }
 
 insertItem : Item -> Cmd (Msg Item)
 insertItem item =
@@ -603,3 +613,7 @@ updateItem item =
 selectUpdateItem : Item -> List Item -> List Item
 selectUpdateItem itemSelected items =
     List.map (selectSaveItem itemSelected) items
+
+selectDeleteItem : Item -> List Item -> List Item
+selectDeleteItem itemSelected items =
+    List.filter (\item -> (item.id /= itemSelected.id)) items
