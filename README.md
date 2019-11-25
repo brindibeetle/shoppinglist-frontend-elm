@@ -8,6 +8,7 @@ You need a http-rest service to get/put/patch/ json messages to.
 $ `json-server --watch server/shoppinglist1.json -p 5019 --cors --delay 1000`
 
 file server/shoppinglist1.json :
+
 `{
   "items": [
     {
